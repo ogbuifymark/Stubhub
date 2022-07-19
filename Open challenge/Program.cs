@@ -33,62 +33,18 @@ namespace Open_challenge
             SendEventCustomerSameCity(customer, events);
             SendEventCustomerNearestCity(customer, events);
             SendEventCustomerByClosestPrice(customer, events);
-            SendEventCustomerNearestCityApi(customer);
+            SendEventCustomerNearestCityApi(customer, events);
+            SendEventCustomerNearestErrorHandling(customer, events);
+
 
         }
 
-        private static List<EventDistance> GetEventDistances(List<Event> events, Customer customer)
-        {
-            List<EventDistance> eventDistance = new List<EventDistance>();
-            foreach (var item in events)
-            {
-                EventDistance distanceOjb = new EventDistance { Distance = GetDistance(customer.City, item.City), Event = item };
-                eventDistance.Add(distanceOjb);
-            }
 
-            return eventDistance;
-        }
-        private static List<EventPrice> GetEventByPrice(List<Event> events)
-        {
-            List<EventPrice> eventDistance = new List<EventPrice>();
-            foreach (var item in events)
-            {
-                EventPrice distanceOjb = new EventPrice { Price = GetPrice(item), Event = item };
-                eventDistance.Add(distanceOjb);
-            }
-
-            return eventDistance;
-        }
-        private static async Task<List<EventDistance>> GetEventDistancesApi( Customer customer, string sameCity = "same")
-        {
-            try
-            {
-                List<EventDistance> eventDistance = new List<EventDistance>();
-                HttpResponseMessage response = await client.GetAsync($"api_url?customername={customer.Name}&searchType={sameCity}");
-                if (response.IsSuccessStatusCode)
-                {
-                    eventDistance = await response.Content.ReadAsAsync<List<EventDistance>>();
-                }
-
-
-                return eventDistance;
-            }
-            // 4. TASK
-            catch (Exception ex)
-            {
-                Console.Out.WriteLine($"An error occured while making request. Error is {ex.Message}");
-                return null;
-            }
-
-            
-        }
 
 
         private static void SendEventCustomerSameCity(Customer customer, List<Event> events)
         {
-            List<EventDistance> eventDistance = GetEventDistances(events, customer);
 
-            var sameCity = eventDistance.Where(x => x.Distance == 0);
 
             // 1. TASK
             /* 
@@ -98,10 +54,9 @@ namespace Open_challenge
                 3. What is the expected output if we only have the client John Smith? On the Console the output will be something like this "{CustomerName}: {EventName}  in {CityName}"
                 4. Do you believe there is a way to improve the code you first wrote? i could use IEmunerable to handle the list 
              */
-            foreach (var cityevent in sameCity)
-            {
-                AddToEmail(customer, cityevent.Event);
-            }
+            events.Where(x => x.City == customer.City).ToList().ForEach(x => AddToEmail(customer, x)); 
+
+
         }
         private static void SendEventCustomerNearestCity(Customer customer, List<Event> events)
         {
@@ -115,40 +70,61 @@ namespace Open_challenge
                 3. What is the expected output if we only have the client John Smith? On the Console the output will be something like this "{CustomerName}: {EventName}  in {CityName} {(Distance)}"
                 4. Do you believe there is a way to improve the code you first wrote? break the part of the code into a new function for readability, also use dictionary to map event name to the distance 
              */
-            List<EventDistance> eventDistance = GetEventDistances(events, customer);
-
-            var otherCity = eventDistance.Where(x => x.Distance > 0);
-            var sortedByDistance = otherCity.OrderBy(x => x.Distance).Take(5).ToList();
-            for (int i = 0; i < sortedByDistance.Count; i++)
-            {
-                AddToEmail(customer, sortedByDistance[i].Event);
-            }
+           
+             events.OrderBy(p =>
+                GetDistance(p.City, customer.City)
+                ).Take(5).ToList().ForEach(x => AddToEmail(customer, x));
+           
+            
         }
 
-        private static async Task SendEventCustomerNearestCityApi(Customer customer)
+        private static void SendEventCustomerNearestCityApi(Customer customer, List<Event> events)
         {
             // 3. TASK
-            
-            List<EventDistance> eventDistance = await GetEventDistancesApi(customer);
 
-            var otherCity = eventDistance.Where(x => x.Distance > 0);
-            var sortedByDistance = otherCity.OrderBy(x => x.Distance).Take(5).ToList();
-            for (int i = 0; i < sortedByDistance.Count; i++)
+            List<Event> eventDistances = new List<Event>();
+            try
             {
-                AddToEmail(customer, sortedByDistance[i].Event);
+                eventDistances = events.OrderBy(p =>
+                GetDistance(p.City, customer.City)
+                ).ToList();
             }
+            catch (Exception ex)
+            {
+
+            }
+            eventDistances.Take(5).ToList().ForEach(x => AddToEmail(customer, x));
+
+            
+            
         }
-        private static async Task SendEventCustomerByClosestPrice(Customer customer, List<Event> events)
+
+        private static void SendEventCustomerNearestErrorHandling (Customer customer, List<Event> events)
+        {
+            // 4. TASK
+            List<Event> eventDistances = new List<Event>();
+            try
+            {
+                eventDistances = events.OrderBy(p =>
+                GetDistance(p.City, customer.City)
+                ).ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.Out.WriteLine($"An error occured while making request. Error is {ex.Message}");
+            }
+            
+
+        }
+        private static void SendEventCustomerByClosestPrice(Customer customer, List<Event> events)
         {
             // 5. TASK
 
-            List<EventPrice> eventDistance = GetEventByPrice(events);
-
-            var sortedByDistance = eventDistance.OrderBy(x => x.Price).Take(5).ToList();
-            for (int i = 0; i < sortedByDistance.Count; i++)
-            {
-                AddToEmail(customer, sortedByDistance[i].Event);
-            }
+            events.OrderBy(p =>
+                    GetPrice(p)
+                ).Take(5).ToList().ForEach(x=> AddToEmail(customer, x, GetPrice(x)));
+            
+            
         }
 
         /*
@@ -171,6 +147,7 @@ namespace Open_challenge
         {
             return AlphebiticalDistance(fromCity, toCity);
         }
+        
 
         private static int AlphebiticalDistance(string s, string t)
         {
@@ -190,16 +167,8 @@ namespace Open_challenge
         }
     }
 
-    public class EventDistance
-    {
-        public int Distance { get; set; }
-        public Event Event { get; set; }
-    }
-    public class EventPrice
-    {
-        public int Price { get; set; }
-        public Event Event { get; set; }
-    }
+    
+   
     public class Event
     {
         public string Name { get; set; }
@@ -210,6 +179,5 @@ namespace Open_challenge
         public string Name { get; set; }
         public string City { get; set; }
     }
-  
 
 }
